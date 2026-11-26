@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gerador de Fichas de Atendimento</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#1e40af" />
+  <!-- Biblioteca jsPDF embutida via CDN (será cacheada pelo Service Worker para uso offline) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root {
+      --primary: #1e40af;
+      --primary-hover: #1d4ed8;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #cbd5e1;
+      --success: #15803d;
+    }
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body { margin: 0; background: var(--bg); color: var(--text); padding: 16px; }
+    .container { max-width: 600px; margin: 0 auto; }
+    header { background: var(--primary); color: #fff; padding: 18px; border-radius: 12px; margin-bottom: 16px; text-align: center; }
+    header h1 { margin: 0; font-size: 1.3rem; }
+    header p { margin: 4px 0 0; font-size: 0.85rem; opacity: 0.9; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .card h2 { margin: 0 0 12px; font-size: 1.05rem; color: var(--primary); border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; }
+    .form-group { margin-bottom: 12px; }
+    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: #334155; }
+    input[type="text"], input[type="number"], select {
+      width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem;
+    }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+    .checkbox-row input { width: 18px; height: 18px; }
+    .combo-box { background: #f1f5f9; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid var(--primary); }
+    .combo-box.pref { border-left-color: #b91c1c; }
+    .combo-header { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 0.9rem; margin-bottom: 6px; }
+    .btn {
+      width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 700;
+      cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary { background: #e2e8f0; color: #1e293b; margin-top: 8px; font-size: 0.9rem; padding: 10px; }
+    .btn-success { background: var(--success); color: #fff; margin-top: 8px; }
+    .actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    #status { margin-top: 10px; font-size: 0.85rem; text-align: center; color: var(--success); font-weight: 600; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Gerador de Fichas de Atendimento</h1>
+      <p>Gere e imprima senhas organizadas em PDF (100% Offline)</p>
+    </header>
+
+    <!-- Configurações Gerais -->
+    <div class="card">
+      <h2>1. Dados da Instituição e Layout</h2>
+      <div class="form-group">
+        <label for="instituicao">Nome da Instituição / Unidade</label>
+        <input type="text" id="instituicao" placeholder="Ex: Unidade Básica de Saúde Central" value="Atendimento Geral" />
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="prefixo">Prefixo Opcional</label>
+          <input type="text" id="prefixo" placeholder="Ex: SENHA ou A" maxlength="8" />
+        </div>
+        <div class="form-group">
+          <label for="inicio">Número Inicial</label>
+          <input type="number" id="inicio" value="1" min="1" max="9999" />
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="porPagina">Fichas por Página A4</label>
+          <select id="porPagina">
+            <option value="8">8 fichas (2 colunas x 4 linhas)</option>
+            <option value="10" selected>10 fichas (2 colunas x 5 linhas)</option>
+            <option value="12">12 fichas (3 colunas x 4 linhas)</option>
+            <option value="16">16 fichas (4 colunas x 4 linhas)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="dataTexto">Data de Referência</label>
+          <input type="date" id="dataTexto" />
+        </div>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="incluirData" checked />
+        <label for="incluirData" style="margin:0;">Incluir data e horário de emissão nas fichas</label>
+      </div>
+    </div>
+
+    <!-- Quantidades Independentes -->
+    <div class="card">
+      <h2>2. Quantidade por Categoria e Período</h2>
+      <p style="font-size:0.8rem; color:var(--muted); margin-top:0;">
+        Cada grupo marcado terá sua própria sequência numérica independente a partir do número inicial.
+      </p>
+
+      <div class="combo-box">
+        <div class="combo-header">
+          <span>NORMAL — MANHÃ</span>
+          <input type="checkbox" id="chk_norm_manha" checked />
+        </div>
+        <input type="number" id="qtd_norm_manha" value="50" min="0" max="500" placeholder="Quantidade" />
+      </div>
+
+      <div class="combo-box pref">
+        <div class="combo-header">
+          <span>PREFERENCIAL — MANHÃ</span>
+          <input type="checkbox" id="chk_pref_manha" checked />
+        </div>
+        <input type="number" id="qtd_pref_manha" value="10" min="0" max="500" placeholder="Quantidade" />
+      </div>
+
+      <div class="combo-box">
+        <div class="combo-header">
+          <span>NORMAL — TARDE</span>
+          <input type="checkbox" id="chk_norm_tarde" checked />
+        </div>
+        <input type="number" id="qtd_norm_tarde" value="50" min="0" max="500" placeholder="Quantidade" />
+      </div>
+
+      <div class="combo-box pref">
+        <div class="combo-header">
+          <span>PREFERENCIAL — TARDE</span>
+          <input type="checkbox" id="chk_pref_tarde" checked />
+        </div>
+        <input type="number" id="qtd_pref_tarde" value="10" min="0" max="500" placeholder="Quantidade" />
+      </div>
+
+      <button class="btn btn-secondary" onclick="salvarFavorito()">Salvar Configuração como Favorita</button>
+      <div id="status"></div>
+    </div>
+
+    <!-- Ações de Geração -->
+    <div class="card">
+      <h2>3. Gerar e Exportar PDF</h2>
+      <button class="btn btn-primary" onclick="gerarPDF()">Gerar Fichas em PDF</button>
+
+      <div id="resultadoBox" class="hidden">
+        <div class="actions-grid">
+          <button class="btn btn-success" onclick="baixarPDF()">Baixar PDF</button>
+          <button class="btn btn-secondary" style="margin-top:8px;" onclick="visualizarPDF()">Visualizar / Imprimir</button>
+        </div>
+        <button class="btn btn-secondary" onclick="compartilharPDF()">Compartilhar PDF (WhatsApp / E-mail)</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let pdfBlobAtual = null;
+    let pdfUrlAtual = null;
+
+    // Inicializa data de hoje e carrega favoritos
+    window.addEventListener('DOMContentLoaded', () => {
+      const hoje = new Date().toISOString().split('T')[0];
+      document.getElementById('dataTexto').value = hoje;
+      carregarFavorito();
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      }
+    });
+
+    function salvarFavorito() {
+      const config = {
+        instituicao: document.getElementById('instituicao').value,
+        prefixo: document.getElementById('prefixo').value,
+        inicio: document.getElementById('inicio').value,
+        porPagina: document.getElementById('porPagina').value,
+        incluirData: document.getElementById('incluirData').checked,
+        chk_norm_manha: document.getElementById('chk_norm_manha').checked,
+        qtd_norm_manha: document.getElementById('qtd_norm_manha').value,
+        chk_pref_manha: document.getElementById('chk_pref_manha').checked,
+        qtd_pref_manha: document.getElementById('qtd_pref_manha').value,
+        chk_norm_tarde: document.getElementById('chk_norm_tarde').checked,
+        qtd_norm_tarde: document.getElementById('qtd_norm_tarde').value,
+        chk_pref_tarde: document.getElementById('chk_pref_tarde').checked,
+        qtd_pref_tarde: document.getElementById('qtd_pref_tarde').value,
+      };
+      localStorage.setItem('fichas_config_v1', JSON.stringify(config));
+      mostrarStatus('Configuração salva no dispositivo!');
+    }
+
+    function carregarFavorito() {
+      const salvo = localStorage.getItem('fichas_config_v1');
+      if (!salvo) return;
+      try {
+        const c = JSON.parse(salvo);
+        document.getElementById('instituicao').value = c.instituicao || '';
+        document.getElementById('prefixo').value = c.prefixo || '';
+        document.getElementById('inicio').value = c.inicio || 1;
+        document.getElementById('porPagina').value = c.porPagina || '10';
+        document.getElementById('incluirData').checked = !!c.incluirData;
+        document.getElementById('chk_norm_manha').checked = !!c.chk_norm_manha;
+        document.getElementById('qtd_norm_manha').value = c.qtd_norm_manha ?? 50;
+        document.getElementById('chk_pref_manha').checked = !!c.chk_pref_manha;
+        document.getElementById('qtd_pref_manha').value = c.qtd_pref_manha ?? 10;
+        document.getElementById('chk_norm_tarde').checked = !!c.chk_norm_tarde;
+        document.getElementById('qtd_norm_tarde').value = c.qtd_norm_tarde ?? 50;
+        document.getElementById('chk_pref_tarde').checked = !!c.chk_pref_tarde;
+        document.getElementById('qtd_pref_tarde').value = c.qtd_pref_tarde ?? 10;
+      } catch (e) {}
+    }
+
+    function mostrarStatus(msg) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      setTimeout(() => { el.textContent = ''; }, 3500);
+    }
+
+    function formatarNumero(num, prefixo) {
+      const numStr = String(num).padStart(3, '0');
+      return prefixo ? `${prefixo.trim()}-${numStr}` : numStr;
+    }
+
+    function gerarPDF() {
+      if (!window.jspdf) {
+        alert('Aguarde o carregamento da biblioteca PDF ou conecte-se uma vez para armazenar offline.');
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+      const instituicao = document.getElementById('instituicao').value.trim() || 'Atendimento';
+      const prefixo = document.getElementById('prefixo').value.trim();
+      const inicio = Math.max(1, parseInt(document.getElementById('inicio').value, 10) || 1);
+      const porPagina = parseInt(document.getElementById('porPagina').value, 10);
+      const incluirData = document.getElementById('incluirData').checked;
+      const dataInput = document.getElementById('dataTexto').value;
+      const dataFormatada = dataInput ? dataInput.split('-').reverse().join('/') : new Date().toLocaleDateString('pt-BR');
+      const horaAtual = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+      const grupos = [
+        { ativo: document.getElementById('chk_norm_manha').checked, qtd: parseInt(document.getElementById('qtd_norm_manha').value, 10) || 0, cat: 'NORMAL', per: 'MANHÃ' },
+        { ativo: document.getElementById('chk_pref_manha').checked, qtd: parseInt(document.getElementById('qtd_pref_manha').value, 10) || 0, cat: 'PREFERENCIAL', per: 'MANHÃ' },
+        { ativo: document.getElementById('chk_norm_tarde').checked, qtd: parseInt(document.getElementById('qtd_norm_tarde').value, 10) || 0, cat: 'NORMAL', per: 'TARDE' },
+        { ativo: document.getElementById('chk_pref_tarde').checked, qtd: parseInt(document.getElementById('qtd_pref_tarde').value, 10) || 0, cat: 'PREFERENCIAL', per: 'TARDE' },
+      ];
+
+      // Monta lista de todas as fichas com numeração independente por grupo
+      const fichas = [];
+      grupos.forEach(g => {
+        if (g.ativo && g.qtd > 0) {
+          for (let i = 0; i < g.qtd; i++) {
+            fichas.push({
+              numero: formatarNumero(inicio + i, prefixo),
+              categoria: g.cat,
+              periodo: g.per
+            });
+          }
+        }
+      });
+
+      if (fichas.length === 0) {
+        alert('Selecione pelo menos um grupo com quantidade maior que zero.');
+        return;
+      }
+
+      // Configuração da grade A4 (210mm x 297mm)
+      const margem = 10;
+      const larguraUtil = 210 - margem * 2;
+      const alturaUtil = 297 - margem * 2;
+
+      let cols = 2, rows = 5;
+      if (porPagina === 8) { cols = 2; rows = 4; }
+      else if (porPagina === 10) { cols = 2; rows = 5; }
+      else if (porPagina === 12) { cols = 3; rows = 4; }
+      else if (porPagina === 16) { cols = 4; rows = 4; }
+
+      const cardW = larguraUtil / cols;
+      const cardH = alturaUtil / rows;
+
+      fichas.forEach((ficha, index) => {
+        const posNaPagina = index % porPagina;
+        if (index > 0 && posNaPagina === 0) {
+          doc.addPage();
+        }
+
+        const col = posNaPagina % cols;
+        const row = Math.floor(posNaPagina / cols);
+        const x = margem + col * cardW;
+        const y = margem + row * cardH;
+
+        // Linha de corte tracejada
+        doc.setDrawColor(130);
+        doc.setLineDashPattern([2, 2], 0);
+        doc.rect(x, y, cardW, cardH);
+        doc.setLineDashPattern([], 0);
+
+        const centroX = x + cardW / 2;
+
+        // Nome da instituição
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(cols >= 3 ? 8 : 9.5);
+        doc.setTextColor(40);
+        doc.text(instituicao.substring(0, 32), centroX, y + 7, { align: 'center' });
+
+        // Categoria e Período
+        doc.setFontSize(cols >= 3 ? 8.5 : 10);
+        if (ficha.categoria === 'PREFERENCIAL') {
+          doc.setTextColor(185, 28, 28);
+        } else {
+          doc.setTextColor(30, 64, 175);
+        }
+        doc.text(`${ficha.categoria} • ${ficha.periodo}`, centroX, y + 13, { align: 'center' });
+
+        // Número Grande da Senha
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(cols === 4 ? 22 : (cols === 3 ? 26 : 32));
+        doc.setTextColor(0);
+        doc.text(ficha.numero, centroX, y + cardH / 2 + 5, { align: 'center' });
+
+        // Rodapé com Data/Hora opcional
+        if (incluirData) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7.5);
+          doc.setTextColor(100);
+          doc.text(`Data: ${dataFormatada} - ${horaAtual}`, centroX, y + cardH - 4, { align: 'center' });
+        }
+      });
+
+      pdfBlobAtual = doc.output('blob');
+      if (pdfUrlAtual) URL.revokeObjectURL(pdfUrlAtual);
+      pdfUrlAtual = URL.createObjectURL(pdfBlobAtual);
+
+      document.getElementById('resultadoBox').classList.remove('hidden');
+      mostrarStatus(`PDF gerado com sucesso! Total: ${fichas.length} fichas.`);
+    }
+
+    function baixarPDF() {
+      if (!pdfUrlAtual) return;
+      const a = document.createElement('a');
+      a.href = pdfUrlAtual;
+      a.download = `fichas_atendimento_${Date.now()}.pdf`;
+      a.click();
+    }
+
+    function visualizarPDF() {
+      if (!pdfUrlAtual) return;
+      window.open(pdfUrlAtual, '_blank');
+    }
+
+    async function compartilharPDF() {
+      if (!pdfBlobAtual) return;
+      const file = new File([pdfBlobAtual], 'fichas_atendimento.pdf', { type: 'application/pdf' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: 'Fichas de Atendimento',
+            text: 'Segue o PDF com as fichas de atendimento para impressão.',
+            files: [file]
+          });
+        } catch (err) {}
+      } else {
+        baixarPDF();
+        alert('O PDF foi baixado no seu dispositivo para você enviar pelo WhatsApp ou E-mail.');
+      }
+    }
+  </script>
+</body>
+</html>
