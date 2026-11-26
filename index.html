@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <title>Gerador de Fichas de Atendimento</title>
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#1e40af" />
@@ -19,34 +19,45 @@
       --success: #15803d;
     }
     * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
-    body { margin: 0; background: var(--bg); color: var(--text); padding: 16px; }
-    .container { max-width: 600px; margin: 0 auto; }
-    header { background: var(--primary); color: #fff; padding: 18px; border-radius: 12px; margin-bottom: 16px; text-align: center; }
-    header h1 { margin: 0; font-size: 1.3rem; }
-    header p { margin: 4px 0 0; font-size: 0.85rem; opacity: 0.9; }
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-    .card h2 { margin: 0 0 12px; font-size: 1.05rem; color: var(--primary); border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; }
+    body { margin: 0; background: var(--bg); color: var(--text); padding: 12px; }
+    .container { max-width: 600px; margin: 0 auto; width: 100%; }
+    header { background: var(--primary); color: #fff; padding: 16px 14px; border-radius: 12px; margin-bottom: 14px; text-align: center; }
+    header h1 { margin: 0; font-size: 1.2rem; line-height: 1.3; }
+    header p { margin: 4px 0 0; font-size: 0.82rem; opacity: 0.9; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .card h2 { margin: 0 0 12px; font-size: 1rem; color: var(--primary); border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; }
     .form-group { margin-bottom: 12px; }
     label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: #334155; }
     input[type="text"], input[type="number"], input[type="date"], select {
-      width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; background: #fff;
+      width: 100%; padding: 11px 10px; border: 1px solid var(--border); border-radius: 8px;
+      font-size: 16px; background: #fff; min-height: 44px;
     }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .combo-box { background: #f1f5f9; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid var(--primary); }
     .combo-box.pref { border-left-color: #b91c1c; }
-    .combo-header { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 0.9rem; margin-bottom: 6px; }
+    .combo-header { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 0.88rem; margin-bottom: 6px; gap: 8px; }
+    .combo-header input[type="checkbox"] { width: 22px; height: 22px; flex-shrink: 0; }
     .btn {
-      width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 700;
+      width: 100%; padding: 13px 12px; border: none; border-radius: 8px; font-size: 0.98rem; font-weight: 700;
       cursor: pointer; transition: 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px;
+      min-height: 48px; text-align: center;
     }
     .btn-primary { background: var(--primary); color: #fff; }
     .btn-primary:hover { background: var(--primary-hover); }
-    .btn-secondary { background: #e2e8f0; color: #1e293b; margin-top: 8px; font-size: 0.9rem; padding: 10px; }
+    .btn-secondary { background: #e2e8f0; color: #1e293b; margin-top: 8px; font-size: 0.92rem; }
     .btn-success { background: var(--success); color: #fff; margin-top: 8px; }
-    .actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
     #status { margin-top: 10px; font-size: 0.85rem; text-align: center; color: var(--success); font-weight: 600; }
     .hidden { display: none; }
     .hint { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+
+    /* Ajustes específicos para telas pequenas de celulares */
+    @media (max-width: 480px) {
+      body { padding: 10px; }
+      header h1 { font-size: 1.12rem; }
+      .grid-2, .actions-grid { grid-template-columns: 1fr; gap: 0; }
+      .actions-grid .btn { margin-top: 8px; }
+    }
   </style>
 </head>
 <body>
@@ -70,7 +81,7 @@
         </div>
         <div class="form-group">
           <label for="inicio">Número Inicial</label>
-          <input type="number" id="inicio" value="1" min="1" max="9999" />
+          <input type="number" id="inicio" value="1" min="1" max="9999" inputmode="numeric" />
         </div>
       </div>
 
@@ -99,7 +110,7 @@
 
       <div class="form-group hidden" id="campoPersonalizado">
         <label for="porPaginaCustom">Quantidade exata de fichas por página (1 a 50)</label>
-        <input type="number" id="porPaginaCustom" value="10" min="1" max="50" />
+        <input type="number" id="porPaginaCustom" value="10" min="1" max="50" inputmode="numeric" />
         <div class="hint">O layout da folha A4 se ajusta automaticamente (até 50 fichas por página).</div>
       </div>
 
@@ -125,7 +136,7 @@
           <span>NORMAL — MANHÃ</span>
           <input type="checkbox" id="chk_norm_manha" checked />
         </div>
-        <input type="number" id="qtd_norm_manha" value="50" min="0" max="500" placeholder="Quantidade" />
+        <input type="number" id="qtd_norm_manha" value="50" min="0" max="500" inputmode="numeric" placeholder="Quantidade" />
       </div>
 
       <div class="combo-box pref">
@@ -133,7 +144,7 @@
           <span>PREFERENCIAL — MANHÃ</span>
           <input type="checkbox" id="chk_pref_manha" checked />
         </div>
-        <input type="number" id="qtd_pref_manha" value="10" min="0" max="500" placeholder="Quantidade" />
+        <input type="number" id="qtd_pref_manha" value="10" min="0" max="500" inputmode="numeric" placeholder="Quantidade" />
       </div>
 
       <div class="combo-box">
@@ -141,7 +152,7 @@
           <span>NORMAL — TARDE</span>
           <input type="checkbox" id="chk_norm_tarde" checked />
         </div>
-        <input type="number" id="qtd_norm_tarde" value="50" min="0" max="500" placeholder="Quantidade" />
+        <input type="number" id="qtd_norm_tarde" value="50" min="0" max="500" inputmode="numeric" placeholder="Quantidade" />
       </div>
 
       <div class="combo-box pref">
@@ -149,7 +160,7 @@
           <span>PREFERENCIAL — TARDE</span>
           <input type="checkbox" id="chk_pref_tarde" checked />
         </div>
-        <input type="number" id="qtd_pref_tarde" value="10" min="0" max="500" placeholder="Quantidade" />
+        <input type="number" id="qtd_pref_tarde" value="10" min="0" max="500" inputmode="numeric" placeholder="Quantidade" />
       </div>
 
       <button class="btn btn-secondary" onclick="salvarFavorito()">Salvar Configuração como Favorita</button>
@@ -164,7 +175,7 @@
       <div id="resultadoBox" class="hidden">
         <div class="actions-grid">
           <button class="btn btn-success" onclick="baixarPDF()">Baixar PDF</button>
-          <button class="btn btn-secondary" style="margin-top:8px;" onclick="visualizarPDF()">Visualizar / Imprimir</button>
+          <button class="btn btn-secondary" onclick="visualizarPDF()">Visualizar / Imprimir</button>
         </div>
         <button class="btn btn-secondary" onclick="compartilharPDF()">Compartilhar PDF (WhatsApp / E-mail)</button>
       </div>
@@ -388,7 +399,9 @@
       if (pdfUrlAtual) URL.revokeObjectURL(pdfUrlAtual);
       pdfUrlAtual = URL.createObjectURL(pdfBlobAtual);
 
-      document.getElementById('resultadoBox').classList.remove('hidden');
+      const resBox = document.getElementById('resultadoBox');
+      resBox.classList.remove('hidden');
+      resBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       mostrarStatus(`PDF gerado (${porPagina} fichas/página). Total: ${fichas.length} fichas.`);
     }
 
@@ -397,12 +410,17 @@
       const a = document.createElement('a');
       a.href = pdfUrlAtual;
       a.download = `fichas_atendimento_${Date.now()}.pdf`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
     }
 
     function visualizarPDF() {
       if (!pdfUrlAtual) return;
-      window.open(pdfUrlAtual, '_blank');
+      const novaAba = window.open(pdfUrlAtual, '_blank');
+      if (!novaAba) {
+        baixarPDF();
+      }
     }
 
     async function compartilharPDF() {
