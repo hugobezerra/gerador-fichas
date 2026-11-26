@@ -32,8 +32,6 @@
       width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; background: #fff;
     }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
-    .checkbox-row input { width: 18px; height: 18px; }
     .combo-box { background: #f1f5f9; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid var(--primary); }
     .combo-box.pref { border-left-color: #b91c1c; }
     .combo-header { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 0.9rem; margin-bottom: 6px; }
@@ -105,9 +103,13 @@
         <div class="hint">O layout da folha A4 se ajusta automaticamente (até 50 fichas por página).</div>
       </div>
 
-      <div class="checkbox-row">
-        <input type="checkbox" id="incluirData" checked />
-        <label for="incluirData" style="margin:0;">Incluir data e horário de emissão nas fichas</label>
+      <div class="form-group" style="margin-bottom:0;">
+        <label for="modoDataHora">Data e Horário nas Fichas</label>
+        <select id="modoDataHora">
+          <option value="data_hora" selected>Incluir data e horário de emissão</option>
+          <option value="apenas_data">Incluir apenas a data</option>
+          <option value="nenhum">Não incluir data nem horário</option>
+        </select>
       </div>
     </div>
 
@@ -228,7 +230,7 @@
         inicio: document.getElementById('inicio').value,
         porPaginaPreset: document.getElementById('porPaginaPreset').value,
         porPaginaCustom: document.getElementById('porPaginaCustom').value,
-        incluirData: document.getElementById('incluirData').checked,
+        modoDataHora: document.getElementById('modoDataHora').value,
         chk_norm_manha: document.getElementById('chk_norm_manha').checked,
         qtd_norm_manha: document.getElementById('qtd_norm_manha').value,
         chk_pref_manha: document.getElementById('chk_pref_manha').checked,
@@ -252,7 +254,11 @@
         document.getElementById('inicio').value = c.inicio || 1;
         document.getElementById('porPaginaPreset').value = c.porPaginaPreset || '10';
         document.getElementById('porPaginaCustom').value = c.porPaginaCustom || c.porPagina || 10;
-        document.getElementById('incluirData').checked = !!c.incluirData;
+        if (c.modoDataHora) {
+          document.getElementById('modoDataHora').value = c.modoDataHora;
+        } else if (typeof c.incluirData === 'boolean') {
+          document.getElementById('modoDataHora').value = c.incluirData ? 'data_hora' : 'nenhum';
+        }
         document.getElementById('chk_norm_manha').checked = !!c.chk_norm_manha;
         document.getElementById('qtd_norm_manha').value = c.qtd_norm_manha ?? 50;
         document.getElementById('chk_pref_manha').checked = !!c.chk_pref_manha;
@@ -288,10 +294,17 @@
       const prefixo = document.getElementById('prefixo').value.trim();
       const inicio = Math.max(1, parseInt(document.getElementById('inicio').value, 10) || 1);
       const porPagina = obterFichasPorPagina();
-      const incluirData = document.getElementById('incluirData').checked;
+      const modoDataHora = document.getElementById('modoDataHora').value;
       const dataInput = document.getElementById('dataTexto').value;
       const dataFormatada = dataInput ? dataInput.split('-').reverse().join('/') : new Date().toLocaleDateString('pt-BR');
       const horaAtual = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+      let textoRodape = '';
+      if (modoDataHora === 'data_hora') {
+        textoRodape = `Data: ${dataFormatada} - ${horaAtual}`;
+      } else if (modoDataHora === 'apenas_data') {
+        textoRodape = `Data: ${dataFormatada}`;
+      }
 
       const grupos = [
         { ativo: document.getElementById('chk_norm_manha').checked, qtd: parseInt(document.getElementById('qtd_norm_manha').value, 10) || 0, cat: 'NORMAL', per: 'MANHÃ' },
@@ -363,11 +376,11 @@
         doc.setTextColor(0);
         doc.text(ficha.numero, centroX, y + cardH / 2 + (cols >= 5 ? 2 : 5), { align: 'center' });
 
-        if (incluirData && cardH >= 24) {
+        if (textoRodape && cardH >= 24) {
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(cols >= 5 ? 5.8 : 7.5);
           doc.setTextColor(100);
-          doc.text(`Data: ${dataFormatada} - ${horaAtual}`, centroX, y + cardH - 3, { align: 'center' });
+          doc.text(textoRodape, centroX, y + cardH - 3, { align: 'center' });
         }
       });
 
