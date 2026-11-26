@@ -1,4 +1,5 @@
 {
+  "id": "/gerador-fichas/",
   "name": "Gerador de Fichas de Atendimento",
   "short_name": "Fichas PDF",
   "description": "Gere senhas de atendimento organizadas em PDF para impressão.",
@@ -8,6 +9,9 @@
   "background_color": "#f8fafc",
   "theme_color": "#1e40af",
   "orientation": "portrait",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "categories": ["utilities", "productivity"],
   "icons": [
     {
       "src": "icon-192.png",
@@ -19,11 +23,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
-    },
-    {
-      "src": "icon.svg",
-      "sizes": "512x512",
-      "type": "image/svg+xml"
     }
   ]
 }
