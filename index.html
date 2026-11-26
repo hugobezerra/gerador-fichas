@@ -6,7 +6,6 @@
   <title>Gerador de Fichas de Atendimento</title>
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#1e40af" />
-  <!-- Biblioteca jsPDF embutida via CDN (será cacheada pelo Service Worker para uso offline) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     :root {
@@ -29,8 +28,8 @@
     .card h2 { margin: 0 0 12px; font-size: 1.05rem; color: var(--primary); border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; }
     .form-group { margin-bottom: 12px; }
     label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; color: #334155; }
-    input[type="text"], input[type="number"], select {
-      width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem;
+    input[type="text"], input[type="number"], input[type="date"], select {
+      width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; background: #fff;
     }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
@@ -49,6 +48,7 @@
     .actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
     #status { margin-top: 10px; font-size: 0.85rem; text-align: center; color: var(--success); font-weight: 600; }
     .hidden { display: none; }
+    .hint { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
   </style>
 </head>
 <body>
@@ -75,21 +75,33 @@
           <input type="number" id="inicio" value="1" min="1" max="9999" />
         </div>
       </div>
+
       <div class="grid-2">
         <div class="form-group">
-          <label for="porPagina">Fichas por Página A4</label>
-          <select id="porPagina">
-            <option value="8">8 fichas (2 colunas x 4 linhas)</option>
-            <option value="10" selected>10 fichas (2 colunas x 5 linhas)</option>
-            <option value="12">12 fichas (3 colunas x 4 linhas)</option>
-            <option value="16">16 fichas (4 colunas x 4 linhas)</option>
+          <label for="porPaginaPreset">Fichas por Página A4</label>
+          <select id="porPaginaPreset" onchange="alternarPersonalizado()">
+            <option value="4">4 fichas (2 x 2)</option>
+            <option value="6">6 fichas (2 x 3)</option>
+            <option value="8">8 fichas (2 x 4)</option>
+            <option value="10" selected>10 fichas (2 x 5)</option>
+            <option value="12">12 fichas (3 x 4)</option>
+            <option value="16">16 fichas (4 x 4)</option>
+            <option value="custom">Personalizado (digitar)</option>
           </select>
         </div>
+
         <div class="form-group">
           <label for="dataTexto">Data de Referência</label>
           <input type="date" id="dataTexto" />
         </div>
       </div>
+
+      <div class="form-group hidden" id="campoPersonalizado">
+        <label for="porPaginaCustom">Quantidade exata de fichas por página (1 a 30)</label>
+        <input type="number" id="porPaginaCustom" value="10" min="1" max="30" />
+        <div class="hint">O layout da folha A4 se ajusta automaticamente à quantidade escolhida.</div>
+      </div>
+
       <div class="checkbox-row">
         <input type="checkbox" id="incluirData" checked />
         <label for="incluirData" style="margin:0;">Incluir data e horário de emissão nas fichas</label>
@@ -158,23 +170,59 @@
     let pdfBlobAtual = null;
     let pdfUrlAtual = null;
 
-    // Inicializa data de hoje e carrega favoritos
     window.addEventListener('DOMContentLoaded', () => {
       const hoje = new Date().toISOString().split('T')[0];
       document.getElementById('dataTexto').value = hoje;
       carregarFavorito();
+      alternarPersonalizado();
 
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js').catch(() => {});
       }
     });
 
+    function alternarPersonalizado() {
+      const preset = document.getElementById('porPaginaPreset').value;
+      const box = document.getElementById('campoPersonalizado');
+      if (preset === 'custom') {
+        box.classList.remove('hidden');
+      } else {
+        box.classList.add('hidden');
+        document.getElementById('porPaginaCustom').value = preset;
+      }
+    }
+
+    function obterFichasPorPagina() {
+      const preset = document.getElementById('porPaginaPreset').value;
+      if (preset === 'custom') {
+        const val = parseInt(document.getElementById('porPaginaCustom').value, 10);
+        return Math.min(30, Math.max(1, isNaN(val) ? 10 : val));
+      }
+      return parseInt(preset, 10) || 10;
+    }
+
+    function calcularGrade(qtdPorPagina) {
+      if (qtdPorPagina === 1) return { cols: 1, rows: 1 };
+      if (qtdPorPagina === 2) return { cols: 1, rows: 2 };
+      if (qtdPorPagina === 3) return { cols: 1, rows: 3 };
+      if (qtdPorPagina === 4) return { cols: 2, rows: 2 };
+      if (qtdPorPagina <= 6) return { cols: 2, rows: 3 };
+      if (qtdPorPagina <= 8) return { cols: 2, rows: 4 };
+      if (qtdPorPagina <= 10) return { cols: 2, rows: 5 };
+      if (qtdPorPagina <= 12) return { cols: 3, rows: 4 };
+      if (qtdPorPagina <= 16) return { cols: 4, rows: 4 };
+      const cols = 4;
+      const rows = Math.ceil(qtdPorPagina / cols);
+      return { cols, rows };
+    }
+
     function salvarFavorito() {
       const config = {
         instituicao: document.getElementById('instituicao').value,
         prefixo: document.getElementById('prefixo').value,
         inicio: document.getElementById('inicio').value,
-        porPagina: document.getElementById('porPagina').value,
+        porPaginaPreset: document.getElementById('porPaginaPreset').value,
+        porPaginaCustom: document.getElementById('porPaginaCustom').value,
         incluirData: document.getElementById('incluirData').checked,
         chk_norm_manha: document.getElementById('chk_norm_manha').checked,
         qtd_norm_manha: document.getElementById('qtd_norm_manha').value,
@@ -197,7 +245,8 @@
         document.getElementById('instituicao').value = c.instituicao || '';
         document.getElementById('prefixo').value = c.prefixo || '';
         document.getElementById('inicio').value = c.inicio || 1;
-        document.getElementById('porPagina').value = c.porPagina || '10';
+        document.getElementById('porPaginaPreset').value = c.porPaginaPreset || '10';
+        document.getElementById('porPaginaCustom').value = c.porPaginaCustom || c.porPagina || 10;
         document.getElementById('incluirData').checked = !!c.incluirData;
         document.getElementById('chk_norm_manha').checked = !!c.chk_norm_manha;
         document.getElementById('qtd_norm_manha').value = c.qtd_norm_manha ?? 50;
@@ -233,7 +282,7 @@
       const instituicao = document.getElementById('instituicao').value.trim() || 'Atendimento';
       const prefixo = document.getElementById('prefixo').value.trim();
       const inicio = Math.max(1, parseInt(document.getElementById('inicio').value, 10) || 1);
-      const porPagina = parseInt(document.getElementById('porPagina').value, 10);
+      const porPagina = obterFichasPorPagina();
       const incluirData = document.getElementById('incluirData').checked;
       const dataInput = document.getElementById('dataTexto').value;
       const dataFormatada = dataInput ? dataInput.split('-').reverse().join('/') : new Date().toLocaleDateString('pt-BR');
@@ -246,7 +295,6 @@
         { ativo: document.getElementById('chk_pref_tarde').checked, qtd: parseInt(document.getElementById('qtd_pref_tarde').value, 10) || 0, cat: 'PREFERENCIAL', per: 'TARDE' },
       ];
 
-      // Monta lista de todas as fichas com numeração independente por grupo
       const fichas = [];
       grupos.forEach(g => {
         if (g.ativo && g.qtd > 0) {
@@ -265,16 +313,10 @@
         return;
       }
 
-      // Configuração da grade A4 (210mm x 297mm)
       const margem = 10;
       const larguraUtil = 210 - margem * 2;
       const alturaUtil = 297 - margem * 2;
-
-      let cols = 2, rows = 5;
-      if (porPagina === 8) { cols = 2; rows = 4; }
-      else if (porPagina === 10) { cols = 2; rows = 5; }
-      else if (porPagina === 12) { cols = 3; rows = 4; }
-      else if (porPagina === 16) { cols = 4; rows = 4; }
+      const { cols, rows } = calcularGrade(porPagina);
 
       const cardW = larguraUtil / cols;
       const cardH = alturaUtil / rows;
@@ -290,7 +332,6 @@
         const x = margem + col * cardW;
         const y = margem + row * cardH;
 
-        // Linha de corte tracejada
         doc.setDrawColor(130);
         doc.setLineDashPattern([2, 2], 0);
         doc.rect(x, y, cardW, cardH);
@@ -298,13 +339,11 @@
 
         const centroX = x + cardW / 2;
 
-        // Nome da instituição
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(cols >= 3 ? 8 : 9.5);
         doc.setTextColor(40);
         doc.text(instituicao.substring(0, 32), centroX, y + 7, { align: 'center' });
 
-        // Categoria e Período
         doc.setFontSize(cols >= 3 ? 8.5 : 10);
         if (ficha.categoria === 'PREFERENCIAL') {
           doc.setTextColor(185, 28, 28);
@@ -313,13 +352,12 @@
         }
         doc.text(`${ficha.categoria} • ${ficha.periodo}`, centroX, y + 13, { align: 'center' });
 
-        // Número Grande da Senha
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(cols === 4 ? 22 : (cols === 3 ? 26 : 32));
+        const tamFonteNumero = cols === 4 ? 20 : (cols === 3 ? 25 : (rows >= 5 ? 30 : 38));
+        doc.setFontSize(tamFonteNumero);
         doc.setTextColor(0);
         doc.text(ficha.numero, centroX, y + cardH / 2 + 5, { align: 'center' });
 
-        // Rodapé com Data/Hora opcional
         if (incluirData) {
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(7.5);
@@ -333,7 +371,7 @@
       pdfUrlAtual = URL.createObjectURL(pdfBlobAtual);
 
       document.getElementById('resultadoBox').classList.remove('hidden');
-      mostrarStatus(`PDF gerado com sucesso! Total: ${fichas.length} fichas.`);
+      mostrarStatus(`PDF gerado (${porPagina} fichas/página). Total: ${fichas.length} fichas.`);
     }
 
     function baixarPDF() {
